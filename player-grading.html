@@ -67,7 +67,7 @@
   .empty p { margin: 0; }
   .empty .b { font-weight: 600; color: #57534e; }
   .empty .s { font-size: 14px; color: #a8a29e; margin-top: 4px; }
-  .exports { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .exports { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
   .exports button { border: 1px solid var(--line); background: #fff; color: #57534e; border-radius: 12px; padding: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
   .prow { border: 1px solid var(--line); background: #fff; border-radius: 16px; margin-bottom: 10px; overflow: hidden; }
   .phead { display: flex; align-items: center; gap: 12px; padding: 12px; cursor: pointer; }
@@ -113,8 +113,10 @@
   <main id="view-roster" class="hidden">
     <div class="exports" id="exports">
       <button onclick="copyCSV()">Copy CSV</button>
-      <button onclick="downloadCSV()">Download backup</button>
+      <button onclick="downloadBackup()">Backup</button>
+      <button onclick="document.getElementById('importfile').click()">Restore</button>
     </div>
+    <input type="file" id="importfile" accept=".json,application/json" class="hidden" onchange="importBackup(this)">
     <div id="rosterlist"></div>
   </main>
 </div>
@@ -155,7 +157,28 @@ let roster = load();
 let expandedId = null;
 
 function load() {
-  try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
+  try { return sanitize(JSON.parse(localStorage.getItem(KEY))); } catch { return []; }
+}
+// Accepts anything (stored data or an imported file) and returns only
+// well-formed roster entries, recomputing total/avg/grade from the scores.
+function sanitize(data) {
+  if (!Array.isArray(data)) return [];
+  const out = [];
+  for (const p of data) {
+    if (!p || typeof p !== "object" || !p.scores || typeof p.scores !== "object") continue;
+    if (!SKILLS.every(s => Number.isInteger(p.scores[s.key]) && p.scores[s.key] >= 1 && p.scores[s.key] <= 10)) continue;
+    if (typeof p.date !== "string" || isNaN(Date.parse(p.date))) continue;
+    const total = SKILLS.reduce((a,s) => a + p.scores[s.key], 0);
+    const avg = total / SKILLS.length;
+    out.push({
+      id: Number.isFinite(p.id) ? p.id : Date.now() + out.length,
+      name: (typeof p.name === "string" && p.name.trim()) ? p.name.trim() : "Unnamed player",
+      date: p.date,
+      scores: Object.fromEntries(SKILLS.map(s => [s.key, p.scores[s.key]])),
+      total, avg: Number(avg.toFixed(1)), grade: gradeFor(avg).g
+    });
+  }
+  return out;
 }
 function persist() {
   try { localStorage.setItem(KEY, JSON.stringify(roster)); }
@@ -263,13 +286,12 @@ function fmtDate(iso) {
 }
 function renderRoster() {
   const el = document.getElementById("rosterlist");
-  document.getElementById("exports").style.display = roster.length ? "grid" : "none";
   if (!roster.length) {
-    el.innerHTML = `<div class="empty"><p class="b">No players graded yet</p><p class="s">Grade a player and save to build your roster.</p></div>`;
+    el.innerHTML = `<div class="empty"><p class="b">No players graded yet</p><p class="s">Grade a player and save, or restore a backup.</p></div>`;
     return;
   }
   el.innerHTML = roster.map(p => {
-    const gc = GRADES.find(x => x.g === p.grade);
+    const gc = GRADES.find(x => x.g === p.grade) || GRADES[GRADES.length-1];
     const ex = expandedId === p.id;
     return `<div class="prow">
       <div class="phead" onclick="toggleExpand(${p.id})">
@@ -285,7 +307,12 @@ function renderRoster() {
   }).join("");
 }
 function toggleExpand(id) { expandedId = (expandedId === id) ? null : id; renderRoster(); }
-function del(id) { roster = roster.filter(p => p.id !== id); persist(); updateTabLabel(); renderRoster(); }
+function del(id) {
+  const p = roster.find(x => x.id === id);
+  if (p && !confirm(`Delete ${p.name}?`)) return;
+  roster = roster.filter(x => x.id !== id);
+  persist(); updateTabLabel(); renderRoster();
+}
 function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
 function csv() {
@@ -298,19 +325,39 @@ function csv() {
   return [head, ...rows].join("\n");
 }
 function copyCSV() {
-  if (!roster.length) return;
+  if (!roster.length) { toast("Nothing to copy yet"); return; }
   const text = csv();
   if (navigator.clipboard) navigator.clipboard.writeText(text).then(()=>toast("Roster copied")).catch(()=>toast("Copy failed"));
   else toast("Copy not available");
 }
-function downloadCSV() {
-  if (!roster.length) return;
-  const blob = new Blob([csv()], {type:"text/csv"});
+function downloadBackup() {
+  if (!roster.length) { toast("Nothing to back up yet"); return; }
+  const blob = new Blob([JSON.stringify(roster, null, 2)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `player-grades-${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `player-grades-${new Date().toISOString().slice(0,10)}.json`;
   document.body.appendChild(a); a.click(); a.remove();
   toast("Backup downloaded");
+}
+function importBackup(input) {
+  const file = input.files && input.files[0];
+  input.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let entries;
+    try { entries = sanitize(JSON.parse(reader.result)); }
+    catch { toast("Not a valid backup file"); return; }
+    if (!entries.length) { toast("No valid players in that file"); return; }
+    const have = new Set(roster.map(p => p.id));
+    const added = entries.filter(p => !have.has(p.id));
+    if (!added.length) { toast("Already up to date"); return; }
+    roster = [...added, ...roster].sort((a,b) => new Date(b.date) - new Date(a.date));
+    persist(); updateTabLabel(); renderRoster();
+    toast(`Restored ${added.length} player${added.length===1?"":"s"}`);
+  };
+  reader.onerror = () => toast("Couldn't read that file");
+  reader.readAsText(file);
 }
 
 // build bands reference
