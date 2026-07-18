@@ -36,8 +36,8 @@
   .tabrow button { border: 0; background: transparent; padding: 8px; border-radius: 8px; font-size: 14px; font-weight: 600; color: var(--mut); cursor: pointer; }
   .tabrow button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
   main { padding: 0 16px; }
-  .scale { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: #e7e5e4; border-radius: 12px; padding: 4px; margin-bottom: 12px; }
-  .scale button { border: 0; background: transparent; padding: 7px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--mut); cursor: pointer; }
+  .scale { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: #e7e5e4; border-radius: 12px; padding: 4px; margin-bottom: 12px; }
+  .scale button { border: 0; background: transparent; padding: 7px 2px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--mut); cursor: pointer; }
   .scale button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
   .scalehint { margin: -6px 0 12px; padding: 0 4px; font-size: 12px; color: #a8a29e; }
   input.name { width: 100%; border: 1px solid var(--line); background: #fff; border-radius: 12px; padding: 12px 16px; font-size: 16px; outline: none; margin-bottom: 12px; }
@@ -114,8 +114,9 @@
 
   <main id="view-grade">
     <div class="scale">
-      <button id="mode-club" onclick="setMode('club')">Club scale</button>
-      <button id="mode-tech" onclick="setMode('tech')">Technical scale</button>
+      <button id="mode-social" onclick="setMode('social')">Social</button>
+      <button id="mode-club" onclick="setMode('club')">Competitive</button>
+      <button id="mode-tech" onclick="setMode('tech')">Technical</button>
     </div>
     <p class="scalehint" id="scalehint"></p>
     <input class="name" id="pname" placeholder="Player name (optional)" autocomplete="off">
@@ -153,20 +154,31 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// Two rubrics over the same 1-10 scoring:
-//  club (default) - effect-based, calibrated to club-night level; style doesn't matter
-//  tech           - form-based, coaching-standard technique
+// Three rubrics over the same 1-10 scoring:
+//  social (default) - effect-based, doubles, A = our strongest club players
+//  club             - effect-based at competitive level (key kept as "club"
+//                     for backward compat with saved gradings)
+//  tech             - form-based, coaching-standard technique
 const MODES = {
-  club: { name:"Club", hint:"Judged on effect, calibrated to our club — style doesn't matter." },
-  tech: { name:"Technical", hint:"Judged on coached technique — a stricter, form-based standard." }
+  social: { name:"Social", hint:"Judged on effect at social-doubles level — A means our strongest club players." },
+  club:   { name:"Competitive", hint:"Effect-based but calibrated to competitive level — a stricter read of the same skills." },
+  tech:   { name:"Technical", hint:"Judged on coached technique — a strict, form-based standard." }
 };
 const SKILLS = [
-  { key:"grip", name:"Grip / Stroke",
+  { key:"grip", name:"Stroke",
     desc:{
+      social:"Can they produce the shot they need, on either side, however they hold the racquet?",
       club:"Can they produce the shot they need, on either side, however they hold the racquet?",
       tech:"Uses correct forehand, backhand and front-court grip. Flexible with grip changes for every situation."
     },
     anchors:{
+      social:{
+        E:"Can get the shuttle back but with little control; the weak side is a liability.",
+        D:"Controlled shots on the forehand side when given time; the backhand side is mostly a poke or gets avoided.",
+        C:"Controlled shots on both sides in normal rallies; control drops when rushed or at full reach.",
+        B:"Plays the full range of shots comfortably in games — clears, drops, drives, smashes; still caught out in the hardest spots, like deep in the backhand corner.",
+        A:"Produces a controlled shot from anywhere on court, including deep in the backhand corner, and picks the right one for the situation."
+      },
       club:{
         E:"Can get the shuttle back but with little control; the weak side is a liability.",
         D:"Controlled shots on the forehand side when given time; the backhand side is mostly a poke or gets avoided.",
@@ -184,10 +196,18 @@ const SKILLS = [
     }},
   { key:"footwork", name:"Footwork",
     desc:{
+      social:"Do they get to the shuttle early and balanced? Style doesn't matter.",
       club:"Do they get to the shuttle early and balanced? Chassé or not — style doesn't matter.",
       tech:"Uses chassé steps around the court. Stops when playing a shot without stepping beyond it, uses rotation on overhead shots, and isn't flat-footed when waiting for a return."
     },
     anchors:{
+      social:{
+        E:"Often doesn't reach the shuttle, or arrives off-balance with no shot available.",
+        D:"Covers the court when there's time; caught flat-footed by changes of direction.",
+        C:"Arrives in time during normal rallies but often stretched, with only one shot option left.",
+        B:"Arrives in time for the shot they want to play; gets rushed when the pace suddenly lifts.",
+        A:"Set and balanced before the shuttle arrives, even when the pace lifts."
+      },
       club:{
         E:"Often doesn't reach the shuttle, or arrives off-balance with no shot available.",
         D:"Covers the court when there's time; caught flat-footed by changes of direction.",
@@ -205,10 +225,18 @@ const SKILLS = [
     }},
   { key:"positioning", name:"Positioning",
     desc:{
+      social:"Are they in the right place before the shot comes, and is their partner covered?",
       club:"Are they in the right place before the shot comes, and is their partner covered?",
       tech:"Correct position when serving and receiving. Base position correct for both attacking and defensive play. Uses correct rotation to cover partner and anticipate the return."
     },
     anchors:{
+      social:{
+        E:"Stands wherever the last shot left them; leaves half the court open.",
+        D:"Knows where to stand for serve and receive, but drifts out of position during rallies.",
+        C:"Keeps a sensible base in normal rallies; gaps appear when the pace lifts or their partner is pulled wide.",
+        B:"Holds correct attacking and defensive formations; a gap opens during the switch between them.",
+        A:"Moves between attack and defence with their partner without a gap appearing."
+      },
       club:{
         E:"Stands wherever the last shot left them; leaves half the court open.",
         D:"Knows where to stand for serve and receive, but drifts out of position during rallies.",
@@ -226,10 +254,18 @@ const SKILLS = [
     }},
   { key:"tactics", name:"Tactics",
     desc:{
+      social:"Do they use the court and their opponents' weaknesses deliberately? Only score this from match play.",
       club:"Do they use the court and their opponents' weaknesses deliberately? Only score this from match play, not drills.",
       tech:"Court awareness. Plays shots of correct length and tight to the net to exploit the full court. Actively plays into gaps and moves opponents around. Only score this from match play, not drills."
     },
     anchors:{
+      social:{
+        E:"Hits the shuttle back to wherever the opponent is standing.",
+        D:"Plays to space when there's time; shot choices are predictable.",
+        C:"Uses length and tight net shots to build rallies, but reverts to just-get-it-back under pressure.",
+        B:"Plays to space deliberately and picks on the weaker opponent for most of a game.",
+        A:"Keeps their pair on the attack — low serves, shots that force lifts — while picking on the opponents' weaknesses."
+      },
       club:{
         E:"Hits the shuttle back to wherever the opponent is standing.",
         D:"Plays to space when there's time; shot choices are predictable.",
@@ -247,10 +283,18 @@ const SKILLS = [
     }},
   { key:"accuracy", name:"Accuracy",
     desc:{
+      social:"How often do they give away points on unforced errors, and does the shuttle go where they meant?",
       club:"Low hitting-error rate and accuracy in hitting direction. Tip: count errors over 10–20 shots rather than judging by feel.",
       tech:"Low hitting-error rate and accuracy in hitting direction. Tip: count errors over 10–20 shots rather than judging by feel."
     },
     anchors:{
+      social:{
+        E:"Most rallies end on their unforced error.",
+        D:"Gives away points regularly with unforced errors; direction largely untargeted.",
+        C:"A noticeable few unforced errors each game; can aim for general areas of the court.",
+        B:"Rarely gives away points on unforced errors in normal rallies; hits the areas they aim for.",
+        A:"Stays tidy even under pressure; the shuttle goes where they intended."
+      },
       club:{
         E:"Most rallies end on their unforced error — 5 or more misses per 10 shots.",
         D:"Frequent hitting errors, around 3–4 per 10 shots; direction largely untargeted.",
@@ -278,27 +322,32 @@ const BANDS = [
 ];
 const GRADES = [
   { g:"A", range:[9,10], color:"#15803d", label:{
+      social:"The strongest players at club night; fine margins separate them from B.",
       club:"Among the strongest at club night; their game holds up under any pressure we can apply.",
       tech:"Consistent under pressure, and adapts or disguises at pace." }},
   { g:"B", range:[7,8],  color:"#4d7c0f", label:{
+      social:"Strong regulars; hold their own in the top games.",
       club:"Effective in games; only the top players expose them.",
       tech:"Consistent in competitive play; occasional lapses." }},
   { g:"C", range:[5,6],  color:"#b45309", label:{
+      social:"Solid in normal rallies; breaks down when the pace lifts.",
       club:"Solid in normal rallies; breaks down when the pace lifts.",
       tech:"Executes in normal rallies; breaks down under pressure or at pace." }},
   { g:"D", range:[3,4],  color:"#c2410c", label:{
+      social:"Works when given time; breaks down in live rallies.",
       club:"Works when given time; breaks down in live rallies.",
       tech:"Executes in drills and feeds; breaks down in rallies." }},
   { g:"E", range:[1,2],  color:"#b91c1c", label:{
+      social:"Still learning the basics of the game.",
       club:"Still learning the basics of the game.",
       tech:"Can't yet execute the technique, even unpressured." }}
 ];
 const KEY = "badminton-grading-roster-v1";
-const MODEKEY = "badminton-grading-rubric-v1";
+const MODEKEY = "badminton-grading-rubric-v2";
 
 const blank = () => Object.fromEntries(SKILLS.map(s => [s.key, null]));
-let mode = "club";
-try { if (localStorage.getItem(MODEKEY) === "tech") mode = "tech"; } catch {}
+let mode = "social";
+try { const m = localStorage.getItem(MODEKEY); if (Object.hasOwn(MODES, m)) mode = m; } catch {}
 let scores = blank();   // final 1–10 score per skill
 let bands = blank();    // chosen band letter, before low/high is picked
 let roster = load();
@@ -323,7 +372,7 @@ function sanitize(data) {
       name: (typeof p.name === "string" && p.name.trim()) ? p.name.trim() : "Unnamed player",
       date: p.date,
       scores: Object.fromEntries(SKILLS.map(s => [s.key, p.scores[s.key]])),
-      rubric: MODES[p.rubric] ? p.rubric : undefined,
+      rubric: (typeof p.rubric === "string" && Object.hasOwn(MODES, p.rubric)) ? p.rubric : undefined,
       total, avg: Number(avg.toFixed(1)), grade: gradeFor(avg).g
     });
   }
@@ -358,11 +407,13 @@ function updateTabLabel() {
 }
 
 function setMode(m) {
-  if (!MODES[m]) return;
+  if (!Object.hasOwn(MODES, m)) return;
   mode = m;
   try { localStorage.setItem(MODEKEY, m); } catch {}
-  document.getElementById("mode-club").classList.toggle("on", m === "club");
-  document.getElementById("mode-tech").classList.toggle("on", m === "tech");
+  Object.keys(MODES).forEach(k => {
+    const btn = document.getElementById("mode-"+k);
+    if (btn) btn.classList.toggle("on", k === mode);
+  });
   document.getElementById("scalehint").textContent = MODES[m].hint;
   renderCards(); renderBands();
 }
@@ -503,7 +554,7 @@ function del(id) {
 function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
 function csv() {
-  const head = "Name,Date,Grip,Footwork,Positioning,Tactics,Accuracy,Total,Avg,Grade,Scale";
+  const head = "Name,Date,Stroke,Footwork,Positioning,Tactics,Accuracy,Total,Avg,Grade,Scale";
   const rows = roster.map(p => [
     `"${p.name.replace(/"/g,'""')}"`, new Date(p.date).toLocaleDateString(),
     p.scores.grip, p.scores.footwork, p.scores.positioning, p.scores.tactics, p.scores.accuracy,
