@@ -48,9 +48,9 @@
   .step button:active { background: var(--faint); }
   .step .val { width: 56px; text-align: center; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .summary { padding: 4px 16px 14px; }
-  .summary .row { display: flex; gap: 8px; padding: 4px 0; font-size: 14px; align-items: baseline; }
+  .summary .row { display: grid; grid-template-columns: 96px 1fr; gap: 10px; padding: 5px 0; font-size: 14px; }
   .summary .row span { color: var(--mut); }
-  .summary .row b { font-weight: 600; }
+  .summary .row b { font-weight: 600; line-height: 1.35; }
   .summary .warn { margin-top: 8px; font-size: 13px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 8px 10px; }
   .summary .bad { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
   .tonight { padding: 4px 12px 12px; }
@@ -304,7 +304,7 @@ const PLANKEY = "badminton-coach-plan-v1";
 const RUNKEY = "badminton-coach-run-v1";
 
 // S = the numbers the maths runs on. Steppers below edit these.
-const DEFAULTS = { len:120, wu:10, wd:5, kids:16, group:4, courts:4, coached:2, passes:1 };
+const DEFAULTS = { len:90, wu:10, wd:5, kids:16, group:4, courts:4, coached:2 };
 const FIELDS = [
   { k:"len", lab:"Session length", sub:"minutes", step:5, min:30, max:240 },
   { k:"wu", lab:"Warm-up", sub:"minutes, everyone together", step:5, min:0, max:30 },
@@ -312,8 +312,7 @@ const FIELDS = [
   { k:"kids", lab:"Kids tonight", sub:"head count, no names needed", step:1, min:2, max:60 },
   { k:"group", lab:"Group size", sub:"kids pulled out per drill court", step:1, min:2, max:8 },
   { k:"courts", lab:"Courts available", sub:"total, drills + games", step:1, min:1, max:8 },
-  { k:"coached", lab:"Drill courts", sub:"courts with a coach running drills", step:1, min:1, max:6 },
-  { k:"passes", lab:"Passes", sub:"times each kid comes through drills", step:1, min:1, max:4 }
+  { k:"coached", lab:"Drill courts", sub:"courts with a coach running drills", step:1, min:1, max:6 }
 ];
 
 let S = { ...DEFAULTS };
@@ -337,13 +336,13 @@ function toast(msg) {
 function calc() {
   const groups = Math.ceil(S.kids / S.group);
   const lastGroup = S.kids - (groups - 1) * S.group;
-  const roundsPerPass = Math.ceil(groups / Math.min(S.coached, groups));
-  const totalRounds = roundsPerPass * S.passes;
+  const courtsUsed = Math.min(S.coached, groups);
+  const rounds = Math.ceil(groups / courtsUsed);
   const drillTime = S.len - S.wu - S.wd;
-  const slot = Math.floor(drillTime / totalRounds);
-  const spare = drillTime - slot * totalRounds;
-  const lastRoundCourts = groups - (roundsPerPass - 1) * Math.min(S.coached, groups);
-  return { groups, lastGroup, roundsPerPass, totalRounds, drillTime, slot, spare, lastRoundCourts,
+  const slot = Math.floor(drillTime / rounds);
+  const spare = drillTime - slot * rounds;
+  const lastRoundCourts = groups - (rounds - 1) * courtsUsed;
+  return { groups, lastGroup, courtsUsed, rounds, drillTime, slot, spare, lastRoundCourts,
            valid: drillTime > 0 && slot >= 1 };
 }
 
@@ -384,15 +383,15 @@ function renderPlan() {
   const rows = [
     ["Groups", groupsTxt],
     ["Game courts", `${Math.max(0, S.courts - S.coached)} of ${S.courts} — everyone not in drills plays here`],
-    ["Rounds", `${c.totalRounds} × ${c.valid ? c.slot : "–"} min ${S.passes>1 ? `(${S.passes} passes of ${c.roundsPerPass})` : ""}`],
-    ["Per kid", c.valid ? `${S.passes} × ${c.slot} min = ${S.passes*c.slot} min of coaching` : "–"],
+    ["Rounds", `${c.rounds} × ${c.valid ? c.slot : "–"} min`],
+    ["Per kid", c.valid ? `${c.slot} min of coaching` : "–"],
     ["Spare", c.valid ? `${c.spare} min for swap-overs and slippage` : "–"]
   ];
   let warn = "";
-  if (!c.valid) warn = `<div class="warn bad">No time left for drills — the warm-up and warm-down don't fit in ${S.len} minutes with ${c.totalRounds} rounds.</div>`;
-  else if (c.slot < 6) warn = `<div class="warn">Rounds of ${c.slot} min are very short. Fewer passes, fewer groups, or a shorter warm-up would give each group more time.</div>`;
-  else if (c.slot > 20 && S.passes === 1) warn = `<div class="warn">Rounds of ${c.slot} min are long for kids. Consider 2 passes — each kid comes through twice for ${Math.floor(c.drillTime/(c.roundsPerPass*2))} min.</div>`;
-  if (c.valid && c.lastRoundCourts < Math.min(S.coached, c.groups)) warn += `<div class="warn">The last round of each pass only fills ${c.lastRoundCourts} of ${S.coached} drill courts — a coach gets a breather.</div>`;
+  if (!c.valid) warn = `<div class="warn bad">No time left for drills — the warm-up and warm-down don't fit in ${S.len} minutes with ${c.rounds} rounds.</div>`;
+  else if (c.slot < 6) warn = `<div class="warn">Rounds of ${c.slot} min are very short. Bigger groups, another drill court, or a shorter warm-up would give each group more time.</div>`;
+  else if (c.slot > 20) warn = `<div class="warn">Rounds of ${c.slot} min are long for one drill — plan two activities per round, or use smaller groups for shorter rounds.</div>`;
+  if (c.valid && c.lastRoundCourts < c.courtsUsed) warn += `<div class="warn">The last round only fills ${c.lastRoundCourts} of ${S.coached} drill courts — a coach gets a breather.</div>`;
 
   document.getElementById("summary").innerHTML =
     rows.map(r => `<div class="row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("") + warn;
@@ -409,7 +408,7 @@ function renderPlan() {
         ${i<plan.length-1?`<button onclick="moveDrill(${i},1)" aria-label="move down">↓</button>`:""}
         <button class="x" onclick="removeDrill(${i})" aria-label="remove">✕</button>
       </div>`;
-    }).join("") + `<p class="thint">Rounds are split across these in order — with ${plan.length} drill${plan.length===1?"":"s"} over ${c.totalRounds} rounds, coaches switch drill partway through the night.</p>`;
+    }).join("") + `<p class="thint">Rounds are split across these in order — with ${plan.length} drill${plan.length===1?"":"s"} over ${c.rounds} rounds, coaches switch drill partway through the night.</p>`;
   }
 }
 
@@ -470,12 +469,11 @@ function buildTimeline() {
   const c = calc();
   const tl = [];
   if (S.wu > 0) tl.push({ label:"Warm-up", sub:"Everyone together", mins:S.wu, drill:null });
-  for (let r = 0; r < c.totalRounds; r++) {
-    const drill = plan.length ? plan[Math.floor(r * plan.length / c.totalRounds)] : null;
-    const pass = S.passes > 1 ? ` · pass ${Math.floor(r / c.roundsPerPass) + 1}` : "";
+  for (let r = 0; r < c.rounds; r++) {
+    const drill = plan.length ? plan[Math.floor(r * plan.length / c.rounds)] : null;
     tl.push({
-      label:`Drill round ${r+1} of ${c.totalRounds}`,
-      sub:`Pull ${S.group} kids per drill court${pass} · rest play on game courts`,
+      label:`Drill round ${r+1} of ${c.rounds}`,
+      sub:`Pull ${S.group} kids per drill court · rest play on game courts`,
       mins:c.slot, drill
     });
   }
@@ -635,8 +633,8 @@ function renderBar() {
     bar.innerHTML = `
       <div class="gchip" style="background:${c.valid ? "var(--accent)" : "#d6d3d1"}">${c.valid ? c.slot+"′" : "–"}</div>
       <div class="meta">
-        <div class="l1">${c.groups} group${c.groups===1?"":"s"} · ${c.totalRounds} round${c.totalRounds===1?"":"s"}</div>
-        <div class="l2">${c.valid ? `each kid gets ${S.passes*c.slot} min of drills` : "timings don't fit"}</div>
+        <div class="l1">${c.groups} group${c.groups===1?"":"s"} · ${c.rounds} round${c.rounds===1?"":"s"}</div>
+        <div class="l2">${c.valid ? `each kid gets ${c.slot} min of drills` : "timings don't fit"}</div>
       </div>
       <button class="btn go" onclick="start()" ${c.valid ? "" : "disabled"}>Start</button>`;
   }
