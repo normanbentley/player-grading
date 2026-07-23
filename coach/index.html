@@ -49,6 +49,8 @@
   .step .val { width: 56px; text-align: center; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .step input[type="time"] { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 15px; font-weight: 700; color: var(--ink); }
   .seg { display: flex; gap: 4px; background: #e7e5e4; border-radius: 10px; padding: 3px; flex: 0 0 auto; }
+  .step.stack { flex-direction: column; align-items: stretch; gap: 6px; }
+  .step.stack .seg button { flex: 1; }
   .seg button { border: 0; background: transparent; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--mut); cursor: pointer; white-space: nowrap; }
   .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
   details.more { border-top: 1px solid var(--faint); margin: 4px 8px 8px; padding: 0 0 2px; }
@@ -373,7 +375,7 @@ const PLANKEY = "badminton-coach-plan-v2";
 const RUNKEY = "badminton-coach-run-v2";
 
 // S = the numbers the maths runs on. Steppers and time inputs edit these.
-const DEFAULTS = { start:"17:30", finish:"19:00", wu:10, wd:5, players:16, group:4, courts:4, coached:2, grace:1, cap:5, oddMode:"own", rotView:"list" };
+const DEFAULTS = { start:"17:30", finish:"19:00", wu:10, wd:5, players:16, group:4, courts:4, coached:2, grace:1, cap:5, oddMode:"own", rotView:"list", sound:"beep" };
 const FIELDS = [
   { k:"wu", lab:"Warm-up", sub:"minutes, everyone together", step:5, min:0, max:30 },
   { k:"wd", lab:"Warm-down", sub:"minutes at the end", step:5, min:0, max:30 },
@@ -387,6 +389,14 @@ const EXTRAS = [
   { k:"cap", lab:"Max group size", sub:"when merging — can't go below group size", step:1, min:2, max:10 }
 ];
 const ALLFIELDS = FIELDS.concat(EXTRAS);
+// Chime styles: oscillator type, base frequency, ring time, and optional
+// vibrato (the whistle's warble). Square waves play quieter — they're harsh.
+const SOUNDS = {
+  beep:    { name:"Beep",    type:"sine",     f:880,  dur:0.30 },
+  ding:    { name:"Ding",    type:"triangle", f:1568, dur:0.70 },
+  whistle: { name:"Whistle", type:"square",   f:2200, dur:0.40, vibrato:{ f:30, depth:120 } },
+  buzz:    { name:"Buzz",    type:"square",   f:220,  dur:0.35 }
+};
 const PLACES = [["start","Warm-up — everyone"],["rounds","Drill rounds"],["end","Warm-down — everyone"]];
 
 function parseHM(s) {
@@ -421,6 +431,7 @@ try {
     if (parseHM(s.finish) != null) S.finish = s.finish;
     if (s.oddMode === "own" || s.oddMode === "merge") S.oddMode = s.oddMode;
     if (s.rotView === "visual" || s.rotView === "list") S.rotView = s.rotView;
+    if (typeof s.sound === "string" && Object.hasOwn(SOUNDS, s.sound)) S.sound = s.sound;
   }
 } catch {}
 if (S.coached > S.courts) S.coached = S.courts;
@@ -518,6 +529,12 @@ function adjust(k, dir) {
   if (run && ["players","group","coached","courts","cap","grace"].includes(k)) rebuildFutureRounds();
   renderPlan(); renderBar();
 }
+function setSound(k) {
+  S.sound = k;
+  persistS();
+  initAudio(); chime(2);   // instant preview, exactly as heard at time-up
+  renderPlan();
+}
 function setOdd(m) {
   S.oddMode = m;
   persistS();
@@ -584,6 +601,13 @@ function renderPlan() {
       <div class="seg">
         <button class="${S.oddMode==="own"?"on":""}" onclick="setOdd('own')">Own group</button>
         <button class="${S.oddMode==="merge"?"on":""}" onclick="setOdd('merge')">Merge in</button>
+      </div>
+    </div>
+    <div class="step stack">
+      <div class="lab">Chime<small>tap one to hear it — plays at every block change</small></div>
+      <div class="seg">
+        ${Object.entries(SOUNDS).map(([k, s]) =>
+          `<button class="${S.sound===k?"on":""}" onclick="setSound('${k}')">${s.name}</button>`).join("")}
       </div>
     </div>`;
 
@@ -817,15 +841,26 @@ function initAudio() {
 }
 function chime(n) {
   try {
-    if (audio) for (let i = 0; i < n; i++) {
-      const o = audio.createOscillator(), g = audio.createGain();
-      o.connect(g); g.connect(audio.destination);
-      o.frequency.value = 880;
-      const t = audio.currentTime + i*0.35;
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.4, t+0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t+0.3);
-      o.start(t); o.stop(t+0.32);
+    if (audio) {
+      const s = SOUNDS[S.sound] || SOUNDS.beep;
+      const vol = s.type === "square" ? 0.25 : 0.4;
+      for (let i = 0; i < n; i++) {
+        const o = audio.createOscillator(), g = audio.createGain();
+        o.connect(g); g.connect(audio.destination);
+        o.type = s.type;
+        o.frequency.value = s.f;
+        const t = audio.currentTime + i * (s.dur + 0.08);
+        if (s.vibrato) {
+          const lfo = audio.createOscillator(), lg = audio.createGain();
+          lfo.frequency.value = s.vibrato.f; lg.gain.value = s.vibrato.depth;
+          lfo.connect(lg); lg.connect(o.frequency);
+          lfo.start(t); lfo.stop(t + s.dur);
+        }
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + s.dur);
+        o.start(t); o.stop(t + s.dur + 0.02);
+      }
     }
   } catch {}
   try { navigator.vibrate && navigator.vibrate([200,100,200]); } catch {}
