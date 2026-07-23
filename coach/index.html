@@ -44,8 +44,8 @@
   .step { display: flex; align-items: center; gap: 8px; padding: 6px 8px; }
   .step .lab { flex: 1; font-size: 14px; }
   .step .lab small { display: block; font-size: 12px; color: #a8a29e; }
-  .step button { width: 40px; height: 40px; border: 1px solid var(--line); background: #fff; border-radius: 10px; font-size: 20px; font-weight: 600; color: #57534e; cursor: pointer; }
-  .step button:active { background: var(--faint); }
+  .step .pm { width: 40px; height: 40px; border: 1px solid var(--line); background: #fff; border-radius: 10px; font-size: 20px; font-weight: 600; color: #57534e; cursor: pointer; }
+  .step .pm:active { background: var(--faint); }
   .step .val { width: 56px; text-align: center; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .step input[type="time"] { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 15px; font-weight: 700; color: var(--ink); }
   .seg { display: flex; gap: 4px; background: #e7e5e4; border-radius: 10px; padding: 3px; flex: 0 0 auto; }
@@ -61,6 +61,20 @@
   .gbody ol li { margin: 0 0 8px; }
   details.fine { border-top: 1px solid var(--faint); margin-top: 8px; }
   details.fine summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--mut); padding: 8px 0 4px; }
+  .cardhead { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px 0; }
+  .cardhead h2 { padding: 0; }
+  .seg.mini button { padding: 5px 10px; font-size: 12px; }
+  .tl { display: flex; gap: 2px; border-radius: 8px; overflow: hidden; margin: 12px 0 4px; height: 36px; }
+  .tl .sg { display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; overflow: hidden; white-space: nowrap; }
+  .tl .sg.warm, .tl .sg.down { background: #a8a29e; }
+  .tl .sg.round { background: var(--accent); }
+  .tl .sg.brk { background: #e7e5e4; }
+  .tlx { display: flex; justify-content: space-between; font-size: 11px; color: #a8a29e; margin-bottom: 6px; }
+  .tlcap { font-size: 12px; color: var(--mut); margin: 0 0 12px; text-align: center; }
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 6px; }
+  .tile { border: 1px solid var(--line); border-radius: 12px; padding: 10px 8px; text-align: center; background: var(--faint); }
+  .tile b { display: block; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+  .tile small { font-size: 11px; color: var(--mut); line-height: 1.3; display: block; }
   .summary { padding: 4px 16px 14px; }
   .summary .row { display: grid; grid-template-columns: 96px 1fr; gap: 10px; padding: 5px 0; font-size: 14px; }
   .summary .row span { color: var(--mut); }
@@ -76,6 +90,8 @@
   .titem .n small { display: block; font-weight: 400; font-size: 12px; color: #a8a29e; }
   .titem button.mv, .titem button.x { width: 34px; height: 34px; border: 1px solid var(--line); background: #fff; border-radius: 8px; color: #57534e; font-size: 14px; cursor: pointer; flex: 0 0 auto; }
   .titem button.x { color: #dc2626; border-color: #fecaca; }
+  .placerow { border-top: 1px solid var(--faint); padding: 8px 10px; }
+  .placerow .seg button { flex: 1; }
   .thint { font-size: 13px; color: #a8a29e; padding: 0 6px 8px; }
   .chips { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; }
   .chips::-webkit-scrollbar { display: none; }
@@ -154,7 +170,7 @@
       </details>
     </section>
     <section class="card">
-      <h2>The rotation</h2>
+      <div class="cardhead"><h2>The rotation</h2><div class="seg mini" id="rotseg"></div></div>
       <div class="summary" id="summary"></div>
     </section>
     <section class="card">
@@ -166,7 +182,7 @@
       <div class="gbody">
         <ol>
           <li><b>Plan the night.</b> Set the times and player numbers above — the app works out the groups, the rounds, and how long each group gets on a drill court.</li>
-          <li><b>Pick drills.</b> Add them from the Drills tab. The chip on each one places it: warm-up (Start), the drill courts (Rounds), or warm-down (End).</li>
+          <li><b>Pick drills.</b> Add them from the Drills tab. Tap the chip on each one to choose where it runs: warm-up (Start), the drill courts (Rounds), or warm-down (End).</li>
           <li><b>Run it.</b> Tap Start and follow the big timer. When a round's time is up it chimes — swap the groups and tap <b>Next</b>. The water break tells you exactly how many players to grab.</li>
           <li><b>Things change? Fine.</b> Running late shortens the remaining rounds automatically so the night still ends on time. Extra players walked in? Bump the head count on this tab, even mid-session.</li>
         </ol>
@@ -357,7 +373,7 @@ const PLANKEY = "badminton-coach-plan-v2";
 const RUNKEY = "badminton-coach-run-v2";
 
 // S = the numbers the maths runs on. Steppers and time inputs edit these.
-const DEFAULTS = { start:"17:30", finish:"19:00", wu:10, wd:5, players:16, group:4, courts:4, coached:2, grace:1, cap:5, oddMode:"own" };
+const DEFAULTS = { start:"17:30", finish:"19:00", wu:10, wd:5, players:16, group:4, courts:4, coached:2, grace:1, cap:5, oddMode:"own", rotView:"list" };
 const FIELDS = [
   { k:"wu", lab:"Warm-up", sub:"minutes, everyone together", step:5, min:0, max:30 },
   { k:"wd", lab:"Warm-down", sub:"minutes at the end", step:5, min:0, max:30 },
@@ -404,6 +420,7 @@ try {
     if (parseHM(s.start) != null) S.start = s.start;
     if (parseHM(s.finish) != null) S.finish = s.finish;
     if (s.oddMode === "own" || s.oddMode === "merge") S.oddMode = s.oddMode;
+    if (s.rotView === "visual" || s.rotView === "list") S.rotView = s.rotView;
   }
 } catch {}
 if (S.coached > S.courts) S.coached = S.courts;
@@ -426,7 +443,7 @@ function defaultPlace(key) {
 }
 
 let run = null;   // { seq, i, endsAt, sessionEnd, paused, remaining }
-let catFilter = "all", lvFilter = "all", expandedDrill = null, expandedTonight = null;
+let catFilter = "all", lvFilter = "all", expandedDrill = null, expandedTonight = null, placePicker = null;
 let audio = null, wakeLock = null;
 
 function persistS() { try { localStorage.setItem(SETKEY, JSON.stringify(S)); } catch {} }
@@ -516,10 +533,39 @@ function setTime(k, v) {
 function stepRow(f) {
   return `<div class="step">
     <div class="lab">${f.lab}<small>${f.sub}</small></div>
-    <button onclick="adjust('${f.k}',-1)" aria-label="decrease">−</button>
+    <button class="pm" onclick="adjust('${f.k}',-1)" aria-label="decrease">−</button>
     <div class="val">${S[f.k]}</div>
-    <button onclick="adjust('${f.k}',1)" aria-label="increase">+</button>
+    <button class="pm" onclick="adjust('${f.k}',1)" aria-label="increase">+</button>
   </div>`;
+}
+
+function setRotView(v) { S.rotView = v; persistS(); renderPlan(); }
+
+// Visual form of the rotation summary: a proportional timeline of the
+// night plus three stat tiles. Toggled against the row list via rotView.
+function rotationVisual(c) {
+  const segs = [];
+  if (S.wu > 0) segs.push({ cls:"warm", m:S.wu, lab:`${S.wu}m` });
+  for (let r = 0; r < c.rounds; r++) {
+    if (S.grace > 0 && (r > 0 || S.wu > 0)) segs.push({ cls:"brk", m:S.grace, lab:"" });
+    segs.push({ cls:"round", m:c.slot, lab: c.rounds > 3 ? `R${r+1}` : `R${r+1} · ${c.slot}m` });
+  }
+  if (S.wd > 0) {
+    if (S.grace > 0) segs.push({ cls:"brk", m:S.grace, lab:"" });
+    segs.push({ cls:"down", m:S.wd, lab:`${S.wd}m` });
+  }
+  const bar = `<div class="tl">${segs.map(s =>
+    `<div class="sg ${s.cls}" style="width:${(s.m / c.len * 100).toFixed(2)}%">${s.lab}</div>`).join("")}</div>
+    <div class="tlx"><span>${fmt12(S.start)}</span><span>${fmt12(S.finish)}</span></div>
+    <div class="tlcap">Warm-up ${S.wu} min · ${c.rounds} round${c.rounds===1?"":"s"} of ${c.slot} min · warm-down ${S.wd} min</div>`;
+  const uniform = c.sizes.every(x => x === c.sizes[0]);
+  const gameCourts = Math.max(0, S.courts - S.coached);
+  const tiles = `<div class="tiles">
+    <div class="tile"><b>${uniform ? `${c.groups} × ${c.sizes[0]}` : c.groups}</b><small>${uniform ? "groups" : `groups · ${c.sizes.join("·")}`}</small></div>
+    <div class="tile"><b>${c.slot}m</b><small>per player · ~${Math.max(1, Math.round(c.slot / S.group))}m of feeds</small></div>
+    <div class="tile"><b>${gameCourts}</b><small>game court${gameCourts===1?"":"s"}</small></div>
+  </div>`;
+  return bar + tiles;
 }
 
 function renderPlan() {
@@ -536,8 +582,8 @@ function renderPlan() {
     <div class="step">
       <div class="lab">Odd players<small>leftovers form their own group, or merge in</small></div>
       <div class="seg">
-        <button class="${S.oddMode==="own"?"on":""}" onclick="setOdd('own')">Own</button>
-        <button class="${S.oddMode==="merge"?"on":""}" onclick="setOdd('merge')">Merge</button>
+        <button class="${S.oddMode==="own"?"on":""}" onclick="setOdd('own')">Own group</button>
+        <button class="${S.oddMode==="merge"?"on":""}" onclick="setOdd('merge')">Merge in</button>
       </div>
     </div>`;
 
@@ -562,8 +608,12 @@ function renderPlan() {
   if (plan.filter(p => p.place === "rounds").length > 1) warn += `<div class="warn">Only one drill runs in the rounds — the first one. Move the others to Start or End.</div>`;
   if (plan.some(p => p.place === "start") && S.wu === 0) warn += `<div class="warn">Warm-up drills are planned but the warm-up is 0 minutes — they won't run.</div>`;
   if (plan.some(p => p.place === "end") && S.wd === 0) warn += `<div class="warn">Warm-down drills are planned but the warm-down is 0 minutes — they won't run.</div>`;
-  document.getElementById("summary").innerHTML =
-    rows.map(r => `<div class="row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("") + warn;
+  document.getElementById("rotseg").innerHTML =
+    `<button class="${S.rotView === "list" ? "" : "on"}" onclick="setRotView('visual')">Visual</button>
+     <button class="${S.rotView === "list" ? "on" : ""}" onclick="setRotView('list')">List</button>`;
+  document.getElementById("summary").innerHTML = (S.rotView === "list"
+    ? rows.map(r => `<div class="row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("")
+    : (c.valid ? rotationVisual(c) : "")) + warn;
 
   const t = document.getElementById("tonight");
   if (!plan.length) {
@@ -577,12 +627,17 @@ function renderPlan() {
         const d = DRILLS.find(dd => dd.key === x.p.k);
         return `<div class="twrap">
           <div class="titem">
-            <button class="place" onclick="cyclePlace(${x.i})">${pl==="start"?"Start":pl==="rounds"?"Rounds":"End"}</button>
+            <button class="place" onclick="togglePlacePicker('${d.key}')">${pl==="start"?"Start":pl==="rounds"?"Rounds":"End"}</button>
             <div class="n" onclick="toggleTonight('${d.key}')">${d.name}<small>${CATS[d.cat]} · tap for details</small></div>
             ${pos>0?`<button class="mv" onclick="movePlan(${x.i},-1)" aria-label="move up">↑</button>`:""}
             ${pos<items.length-1?`<button class="mv" onclick="movePlan(${x.i},1)" aria-label="move down">↓</button>`:""}
             <button class="x" onclick="removeDrill(${x.i})" aria-label="remove">✕</button>
           </div>
+          ${placePicker === d.key ? `<div class="placerow"><div class="seg">
+            <button class="${pl==="start"?"on":""}" onclick="setPlace(${x.i},'start')">Start</button>
+            <button class="${pl==="rounds"?"on":""}" onclick="setPlace(${x.i},'rounds')">Rounds</button>
+            <button class="${pl==="end"?"on":""}" onclick="setPlace(${x.i},'end')">End</button>
+          </div></div>` : ""}
           ${expandedTonight === d.key ? drillBody(d) : ""}
         </div>`;
       }).join("");
@@ -622,14 +677,14 @@ function addDrill(key) {
   persistPlan(); renderDrills();
 }
 function removeDrill(i) { plan.splice(i, 1); persistPlan(); renderPlan(); }
-function cyclePlace(i) {
-  const order = ["start","rounds","end"];
-  let next = order[(order.indexOf(plan[i].place) + 1) % order.length];
-  if (next === "rounds" && plan.some((p, j) => j !== i && p.place === "rounds")) {
-    next = "end";
-    toast("Rounds already has a drill — moved to warm-down");
+function togglePlacePicker(k) { placePicker = placePicker === k ? null : k; renderPlan(); }
+function setPlace(i, place) {
+  if (place === "rounds" && plan.some((p, j) => j !== i && p.place === "rounds")) {
+    toast("Rounds already has a drill — remove it first");
+    return;
   }
-  plan[i].place = next;
+  plan[i].place = place;
+  placePicker = null;
   persistPlan(); renderPlan();
 }
 function movePlan(i, dir) {
