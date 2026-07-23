@@ -48,8 +48,8 @@
   .step button:active { background: var(--faint); }
   .step .val { width: 56px; text-align: center; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .step input[type="time"] { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 15px; font-weight: 700; color: var(--ink); }
-  .seg { display: flex; gap: 4px; background: #e7e5e4; border-radius: 10px; padding: 3px; }
-  .seg button { border: 0; background: transparent; padding: 8px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--mut); cursor: pointer; }
+  .seg { display: flex; gap: 4px; background: #e7e5e4; border-radius: 10px; padding: 3px; flex: 0 0 auto; }
+  .seg button { border: 0; background: transparent; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--mut); cursor: pointer; white-space: nowrap; }
   .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
   details.more { border-top: 1px solid var(--faint); margin: 4px 8px 8px; padding: 0 0 2px; }
   details.more summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--mut); padding: 10px 8px 6px; list-style-position: inside; }
@@ -368,7 +368,7 @@ const FIELDS = [
 const EXTRAS = [
   { k:"courts", lab:"Courts available", sub:"total, drills + games", step:1, min:1, max:8 },
   { k:"grace", lab:"Water break", sub:"minutes between rounds", step:1, min:0, max:5 },
-  { k:"cap", lab:"Max group size", sub:"how big a group can grow when merging", step:1, min:2, max:10 }
+  { k:"cap", lab:"Max group size", sub:"when merging — can't go below group size", step:1, min:2, max:10 }
 ];
 const ALLFIELDS = FIELDS.concat(EXTRAS);
 const PLACES = [["start","Warm-up — everyone"],["rounds","Drill rounds"],["end","Warm-down — everyone"]];
@@ -470,9 +470,8 @@ function calc() {
   const graceCount = Math.max(0, rounds - (S.wu > 0 ? 0 : 1)) + (S.wd > 0 ? 1 : 0);
   const drillTime = len - S.wu - S.wd - graceCount * S.grace;
   const slot = Math.floor(drillTime / rounds);
-  const spare = drillTime - slot * rounds;
   const lastRoundCourts = groups - (rounds - 1) * courtsUsed;
-  return { len, sizes, groups, courtsUsed, rounds, graceCount, drillTime, slot, spare, lastRoundCourts,
+  return { len, sizes, groups, courtsUsed, rounds, graceCount, drillTime, slot, lastRoundCourts,
            valid: len > 0 && drillTime > 0 && slot >= 1 };
 }
 
@@ -533,10 +532,10 @@ function renderPlan() {
     </div>` + FIELDS.map(stepRow).join("");
   document.getElementById("extras").innerHTML = EXTRAS.map(stepRow).join("") + `
     <div class="step">
-      <div class="lab">Odd players<small>when numbers don't divide into groups evenly</small></div>
+      <div class="lab">Odd players<small>leftovers form their own group, or merge in</small></div>
       <div class="seg">
-        <button class="${S.oddMode==="own"?"on":""}" onclick="setOdd('own')">Own group</button>
-        <button class="${S.oddMode==="merge"?"on":""}" onclick="setOdd('merge')">Merge in</button>
+        <button class="${S.oddMode==="own"?"on":""}" onclick="setOdd('own')">Own</button>
+        <button class="${S.oddMode==="merge"?"on":""}" onclick="setOdd('merge')">Merge</button>
       </div>
     </div>`;
 
@@ -551,8 +550,7 @@ function renderPlan() {
     ["Game courts", `${Math.max(0, S.courts - S.coached)} of ${S.courts} — players not in drills play here`],
     ["Rounds", `${c.rounds} × ${c.valid ? c.slot : "–"} min`],
     ["Per player", c.valid ? `${c.slot} min in drills — roughly ${Math.max(1, Math.round(c.slot / S.group))} min each on the coach's feed` : "–"],
-    ["Breaks", S.grace > 0 ? `${c.graceCount} × ${S.grace} min for water and swaps` : "none"],
-    ["Spare", c.valid ? `${c.spare} min` : "–"]
+    ["Breaks", S.grace > 0 ? `${c.graceCount} × ${S.grace} min for water and swaps` : "none"]
   ];
   let warn = "";
   if (c.len <= 0) warn = `<div class="warn bad">Finish time must be after the start time.</div>`;
